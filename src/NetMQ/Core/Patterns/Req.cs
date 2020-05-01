@@ -146,11 +146,7 @@ namespace NetMQ.Core.Patterns
                 // if enabled, the first frame must have the correct request_id.
                 if (m_request_id_frames_enabled)
                 {
-                    if (!base.XRecv(ref msg))
-                    {
-                        continue; // return false; // skip the identity message.  Why doesn't the C code have to do this??
-                    }
-
+                    if (!base.XRecv(ref msg)) return false;
 
                     if (!msg.HasMore || (msg.Size != sizeof(Int64)) || (BitConverter.ToInt64(msg.Slice(0, sizeof(Int64)).ToArray(), 0) != m_request_id))
                     {
@@ -232,11 +228,11 @@ namespace NetMQ.Core.Patterns
             {
                 case ZmqSocketOption.Correlate:
                     m_request_id_frames_enabled = value;
-                    return true; // QUESTION what am I supposed to return? they return 0
+                    return true; 
           
                 case ZmqSocketOption.Relaxed:
                     m_strict = !value;
-                    return true; // QUESTION what am I supposed to return? they return 0
+                    return true; 
             }
   
             return base.XSetSocketOption(option, optionValue);
