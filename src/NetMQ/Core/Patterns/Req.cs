@@ -19,7 +19,7 @@
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+using System;
 using System.Diagnostics;
 using JetBrains.Annotations;
 
@@ -42,6 +42,10 @@ namespace NetMQ.Core.Patterns
         /// </summary>
         private bool m_messageBegins;
 
+        private bool m_strict;
+        private bool m_request_id_frames_enabled;
+        private Int64 m_request_id;
+
         /// <summary>
         /// Create a new Req (Request) socket with the given parent Ctx, thread and socket id.
         /// </summary>
@@ -55,6 +59,9 @@ namespace NetMQ.Core.Patterns
             m_messageBegins = true;
             m_options.SocketType = ZmqSocketType.Req;
             m_options.CanSendHelloMsg = false;
+            m_strict = true;
+            m_request_id_frames_enabled = false;
+            m_request_id = (new Random()).Next(1, 10433); // just an arbitrary pick.  Don't want to make it likely that m_request_id overflows.
         }
 
         /// <summary>
@@ -67,7 +74,7 @@ namespace NetMQ.Core.Patterns
         {
             // If we've sent a request and we still haven't got the reply,
             // we can't send another request.
-            if (m_receivingReply)
+            if (m_receivingReply && m_strict)
                 throw new FiniteStateMachineException("Req.XSend - cannot send another request");
 
             bool isMessageSent;
@@ -75,6 +82,20 @@ namespace NetMQ.Core.Patterns
             // First part of the request is the request identity.
             if (m_messageBegins)
             {
+                // support frame id
+                if (m_request_id_frames_enabled)
+                {
+                    m_request_id++;
+                    var id = new Msg();
+                    id.InitEmpty();
+                    id.InitPool(sizeof(Int64));
+                    id.Put(BitConverter.GetBytes(m_request_id), 0, sizeof(Int64));
+                    id.SetFlags(MsgFlags.More);
+                    if (!base.XSend(ref id))
+                        return false;
+                }
+
+
                 var bottom = new Msg();
                 bottom.InitEmpty();
                 bottom.SetFlags(MsgFlags.More);
@@ -117,9 +138,33 @@ namespace NetMQ.Core.Patterns
             if (!m_receivingReply)
                 throw new FiniteStateMachineException("Req.XRecv - cannot receive another reply");
 
+ 
             // First part of the reply should be the original request ID.
-            if (m_messageBegins)
+            //if (m_messageBegins)
+            while (m_messageBegins)
             {
+                // if enabled, the first frame must have the correct request_id.
+                if (m_request_id_frames_enabled)
+                {
+                    if (!base.XRecv(ref msg))
+                    {
+                        continue; // return false; // skip the identity message.  Why doesn't the C code have to do this??
+                    }
+
+
+                    if (!msg.HasMore || (msg.Size != sizeof(Int64)) || (BitConverter.ToInt64(msg.Slice(0, sizeof(Int64)).ToArray(), 0) != m_request_id))
+                    {
+                        // skip the remaining frames and try the next message
+                        while (msg.HasMore)
+                        {
+                            var wasReceived = base.XRecv(ref msg);
+                            Debug.Assert(wasReceived);
+                        }
+                        continue;
+                    }
+                }
+
+
                 isMessageAvailable = base.XRecv(ref msg);
 
                 if (!isMessageAvailable)
@@ -167,10 +212,34 @@ namespace NetMQ.Core.Patterns
 
         protected override bool XHasOut()
         {
-            if (m_receivingReply)
+            if (m_receivingReply && m_strict)
                 return false;
 
             return base.XHasOut();
+        }
+
+        protected override bool XSetSocketOption(ZmqSocketOption option, [CanBeNull] object optionValue)
+        {
+            // bail if optionValue is a null or not a bool.
+            if (optionValue == null || ((optionValue as bool?) == null))
+            {
+                return false;
+            }
+
+            var value = (bool)optionValue;
+          
+            switch (option)
+            {
+                case ZmqSocketOption.Correlate:
+                    m_request_id_frames_enabled = value;
+                    return true; // QUESTION what am I supposed to return? they return 0
+          
+                case ZmqSocketOption.Relaxed:
+                    m_strict = !value;
+                    return true; // QUESTION what am I supposed to return? they return 0
+            }
+  
+            return base.XSetSocketOption(option, optionValue);
         }
 
         public class ReqSession : SessionBase

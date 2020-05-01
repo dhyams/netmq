@@ -28,6 +28,30 @@ namespace NetMQ.Tests
             }
         }
 
+        [Theory]
+        [InlineData("tcp://localhost")]
+        [InlineData("tcp://127.0.0.1")]
+        public void SimpleReqRepWithCorrelation(string address)
+        {
+            using (var rep = new ResponseSocket())
+            using (var req = new RequestSocket())
+            {
+                req.Options.Correlate = true;
+                //req.Options.Relaxed = true;
+
+                var port = rep.BindRandomPort(address);
+                req.Connect(address + ":" + port);
+
+                req.SendFrame("Hi");
+
+                Assert.Equal(new[] { "Hi" }, rep.ReceiveMultipartStrings());
+
+                rep.SendFrame("Hi2");
+
+                Assert.Equal(new[] { "Hi2" }, req.ReceiveMultipartStrings());
+            }
+        }
+
         [Fact]
         public void SendingTwoRequestsInARow()
         {
@@ -46,11 +70,31 @@ namespace NetMQ.Tests
         }
 
         [Fact]
+        public void SendingTwoRequestsInARowWithRelaxed()
+        {
+            using (var rep = new ResponseSocket())
+            using (var req = new RequestSocket())
+            {
+                req.Options.Relaxed = true;
+
+                var port = rep.BindRandomPort("tcp://localhost");
+                req.Connect("tcp://localhost:" + port);
+
+                req.SendFrame("Hi");
+
+                //rep.SkipFrame();
+
+                req.SendFrame("Hi2");
+            }
+        }
+
+        [Fact] // DGH would like to test this with and without relaxed = true, correlate = true
         public void ReceiveBeforeSending()
         {
             using (var rep = new ResponseSocket())
             using (var req = new RequestSocket())
             {
+
                 var port = rep.BindRandomPort("tcp://localhost");
                 req.Connect("tcp://localhost:" + port);
 
