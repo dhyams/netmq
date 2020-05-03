@@ -95,11 +95,13 @@ namespace NetMQ.Core.Patterns.Utils
 
         public bool Recv(ref Msg msg)
         {
-            return RecvPipe(null, ref msg);
+            return RecvPipe(ref msg, out Pipe _);
         }
 
-        public bool RecvPipe(Pipe[] pipe, ref Msg msg)
+        public bool RecvPipe(ref Msg msg, out Pipe pipe)
         {
+            pipe = null;
+
             // Deallocate old content of the message.
             msg.Close();
 
@@ -116,8 +118,8 @@ namespace NetMQ.Core.Patterns.Utils
                 // the 'current' pointer.
                 if (fetched)
                 {
-                    if (pipe != null)
-                        pipe[0] = m_pipes[m_current];
+                    pipe = m_pipes[m_current];
+
                     m_more = msg.HasMore;
                     if (!m_more)
                         m_current = (m_current + 1) % m_active;

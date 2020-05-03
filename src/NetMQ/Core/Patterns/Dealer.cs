@@ -103,10 +103,7 @@ namespace NetMQ.Core.Patterns
         /// <returns><c>true</c> if the message was received successfully, <c>false</c> if there were no messages to receive</returns>
         protected bool XRecvPipe(ref Msg msg, out Pipe pipe)
         {
-            var pipes = new Pipe[1];  // awkward.  Need to fix RecvPipe.
-            var retval = m_fairQueueing.RecvPipe(pipes, ref msg);
-            pipe = pipes[0];
-            return retval;
+            return m_fairQueueing.RecvPipe(ref msg, out pipe);
         }
 
         /// <summary>
