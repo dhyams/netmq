@@ -18,7 +18,7 @@ namespace NetMQ.Tests
             Assert.Equal(new[] { "Hi2" }, req.ReceiveMultipartStrings());
         }
 
-        protected void SendTwoReqsInARow(string address, RequestSocket req, ResponseSocket rep)
+        protected void SendTwoReqsInSuccession(string address, RequestSocket req, ResponseSocket rep)
         {
             var port = rep.BindRandomPort(address);
             req.Connect(address + ":" + port);
@@ -69,7 +69,7 @@ namespace NetMQ.Tests
         [Theory]
         [InlineData("tcp://localhost")]
         [InlineData("tcp://127.0.0.1")]
-        public void SendingTwoRequestsInARowFails(string address)
+        public void SendingTwoRequestsInSuccessionFails(string address)
         {
             using (var rep = new ResponseSocket())
             using (var req = new RequestSocket())
@@ -85,7 +85,7 @@ namespace NetMQ.Tests
         [Theory]
         [InlineData("tcp://localhost")]
         [InlineData("tcp://127.0.0.1")]
-        public void SendingTwoRequestsInARowWithRelaxedSucceeds(string address)
+        public void SendingTwoRequestsInSuccessionWithRelaxedSucceeds(string address)
         {
             using (var rep = new ResponseSocket())
             using (var req = new RequestSocket())
@@ -114,7 +114,7 @@ namespace NetMQ.Tests
         }
 
         [Fact]
-        public void ReceiveBeforeSendingWithRelaxedFails()
+        public void ReceiveBeforeSendingWithRelaxedStillFails()
         {
             using (var rep = new ResponseSocket())
             using (var req = new RequestSocket())
@@ -128,7 +128,7 @@ namespace NetMQ.Tests
         }
 
         [Fact]
-        public void ReceiveBeforeSendingWithCorrelateFails()
+        public void ReceiveBeforeSendingWithCorrelateStillFails()
         {
             using (var rep = new ResponseSocket())
             using (var req = new RequestSocket())
