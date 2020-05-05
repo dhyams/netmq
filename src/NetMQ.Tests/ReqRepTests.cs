@@ -195,12 +195,12 @@ namespace NetMQ.Tests
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void TestCorrelate(bool correlate)
+        public void CorrelationSelectsLatestRequest(bool correlate)
         {
             var rep = new RouterSocket();
             var req = new RequestSocket();
-            
-            var port = 34334;
+
+            var port = rep.BindRandomPort("tcp://localhost");
             req.Connect($"tcp://localhost:{port}");
                 
             req.Options.Relaxed = true;
@@ -211,7 +211,7 @@ namespace NetMQ.Tests
             req.SendFrame("B");
 
             //  Bind server allowing it to receive messages.
-            rep.Bind($"tcp://localhost:{port}");
+            //rep.Bind($"tcp://localhost:{port}");
 
             //  Read the two messages and send them back as is.
             RouterBounce(ref rep);
