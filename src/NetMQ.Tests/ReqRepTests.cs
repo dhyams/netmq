@@ -1,6 +1,5 @@
 ﻿using NetMQ.Sockets;
 using Xunit;
-using System.Threading;
 
 namespace NetMQ.Tests
 {
@@ -180,6 +179,60 @@ namespace NetMQ.Tests
                 Assert.Equal("From1", req1.ReceiveFrameString());
 
             }
+        }
+
+        internal void RouterBounce(ref RouterSocket router)
+        {
+            bool more;
+            do
+            {
+                var bytes = router.ReceiveFrameBytes(out more);
+                router.SendFrame(bytes, more);
+            } while (more);
+        }
+
+ 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void TestCorrelate(bool correlate)
+        {
+            var rep = new RouterSocket();
+            var req = new RequestSocket();
+            
+            var port = 34334;
+            req.Connect($"tcp://localhost:{port}");
+                
+            req.Options.Relaxed = true;
+            req.Options.Correlate = correlate;
+
+            //  Send two requests.
+            req.SendFrame("A");
+            req.SendFrame("B");
+
+            //  Bind server allowing it to receive messages.
+            rep.Bind($"tcp://localhost:{port}");
+
+            //  Read the two messages and send them back as is.
+            RouterBounce(ref rep);
+            RouterBounce(ref rep);
+              
+            //  Read the reply. When Options.Correlate is active,
+            //  "A" should be ditched and "B" should be read.  Vice
+            // versa when Options.Corellate is not active.
+            var result = req.ReceiveFrameString();
+
+            if (correlate)
+            {
+                Assert.Equal("B", result); // if correlate is on, we get B which is the typical desired behavior
+            }
+            else
+            {
+                Assert.Equal("A", result); // if correlate is off, we get A 
+            }
+            
+            rep.Dispose();
+            req.Dispose();
         }
 
        
