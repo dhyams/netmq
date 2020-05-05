@@ -207,8 +207,8 @@ namespace NetMQ.Tests
             req.Options.Correlate = correlate;
 
             //  Send two requests.
-            req.SendFrame("A");
-            req.SendFrame("B");
+            req.SendFrame("FirstReq");
+            req.SendFrame("SecondReq");
 
             //  Bind server allowing it to receive messages.
             //rep.Bind($"tcp://localhost:{port}");
@@ -218,17 +218,21 @@ namespace NetMQ.Tests
             RouterBounce(ref rep);
               
             //  Read the reply. When Options.Correlate is active,
-            //  "A" should be ditched and "B" should be read.  Vice
-            // versa when Options.Corellate is not active.
+            //  "FirstReq" should be ditched and "SecondReq" should be read.  Vice
+            //  versa when Options.Corellate is not active.
             var result = req.ReceiveFrameString();
 
             if (correlate)
             {
-                Assert.Equal("B", result); // if correlate is on, we get B which is the typical desired behavior
+                // if correlate is on, we get SecondReq which is the typical desired behavior; this
+                // is the last request that was sent.
+                Assert.Equal("SecondReq", result); 
             }
             else
             {
-                Assert.Equal("A", result); // if correlate is off, we get A 
+                // if correlate is off, we get FirstReq, which is not desired behavior; this is not
+                // the last request that was sent.
+                Assert.Equal("FirstReq", result); 
             }
             
             rep.Dispose();
